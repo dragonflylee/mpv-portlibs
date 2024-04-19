@@ -1,0 +1,57 @@
+name: switch-portlibs
+
+on:
+  push:
+    tags: [ switch-portlibs ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-portlibs:
+    runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkita64:20240324
+    steps:
+    - name: Disable autocrlf
+      run: git config --global core.autocrlf false
+    - uses: actions/checkout@v4
+    - name: Install dependency
+      run: |
+        apt-get update
+        apt-get install -y fakeroot zstd ninja-build bison flex libtool python3-pip manpages-
+        pip3 install meson mako
+
+        dkp-pacman --noconfirm -U dkp-*.zst
+    - name: Build portlibs
+      run: |
+        adduser --gecos '' --home ${GITHUB_WORKSPACE} --disabled-password builder
+        echo 'builder ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/builder
+
+        curl -o mpv-deko3d/deko3d.patch \
+          -H 'Accept: application/vnd.github.patch' \
+          -H 'Authorization: Bearer ${{ secrets.MPV_TOKEN }}' \
+          -H 'X-GitHub-Api-Version: 2022-11-28' \
+          -s ${{ secrets.MPV_COMMIT}}/0.36
+
+        chown -R builder:builder ${GITHUB_WORKSPACE}
+        sudo -u builder -i bash -s << EOF
+          set -x
+          for pkg in libnx libass dav1d ffmpeg libuam; do
+            echo building \$pkg
+            pushd \$pkg; dkp-makepkg -sciCf --noconfirm; popd
+          done
+          for pkg in mpv mpv-deko3d; do
+            echo building \$pkg
+            pushd \$pkg; dkp-makepkg -scCf --noconfirm; popd
+          done
+        EOF
+    - name: Upload portlibs
+      uses: softprops/action-gh-release@v2
+      with:
+        name: switch-portlibs
+        tag_name: switch-portlibs
+        prerelease: true
+        files: "*/*.pkg.tar.zst"
+        body: |
+          ![download](https://img.shields.io/github/downloads/${{ github.repository }}/switch-portlibs/total?label=Downloads)
