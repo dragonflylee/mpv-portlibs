@@ -4,8 +4,8 @@
 
 pkgbasename=libmpv
 pkgname=switch-${pkgbasename}-deko3d
-pkgver=0.36.0
-pkgrel=6
+pkgver=0.38.0
+pkgrel=4
 pkgdesc='Command line video player (library only)'
 arch=('any')
 url='https://mpv.io/'
@@ -13,14 +13,14 @@ license=('GPL')
 options=(!strip libtool staticlibs)
 source=(
   "${pkgbasename}-${pkgver}.tar.gz::https://github.com/mpv-player/mpv/archive/v${pkgver}.tar.gz" 
-  "hos-audio.patch" "ass-fonts.patch" "mp-image.patch" "deko3d.patch" "lavfi-channel.patch"
+  "hos-audio.patch" "ass-fonts.patch" "mp-image.patch" "deko3d.patch"
 )
 sha256sums=(
-  '29abc44f8ebee013bb2f9fe14d80b30db19b534c679056e4851ceadf5a5e8bf6'
-  'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP'
+  '86d9ef40b6058732f67b46d0bbda24a074fae860b3eaae05bab3145041303066'
+  'SKIP' 'SKIP' 'SKIP' 'SKIP'
 )
-makedepends=('switch-pkg-config' 'dkp-toolchain-vars')
-depends=('switch-ffmpeg' 'switch-mesa')
+makedepends=("dkp-toolchain-vars" "dkp-meson-scripts")
+depends=('switch-ffmpeg' 'switch-libplacebo' 'deko3d' 'libuam')
 groups=('switch-portlibs')
 
 prepare() {
@@ -30,27 +30,22 @@ prepare() {
   patch -Np1 -i "$srcdir/ass-fonts.patch"
   patch -Np1 -i "$srcdir/mp-image.patch"
   patch -Np1 -i "$srcdir/deko3d.patch"
-  patch -Np1 -i "$srcdir/lavfi-channel.patch"
 }
 
 build() {
   cd mpv-$pkgver
 
-  source /opt/devkitpro/switchvars.sh
+  /opt/devkitpro/meson-cross.sh switch ../crossfile.txt \
+    -Dlibmpv=true -Dcplayer=false -Dtests=false \
+    -Dgl=disabled -Degl=disabled -Dsdl2=disabled -Diconv=disabled  \
+    -Dlibarchive=disabled -Dlua=disabled -Djpeg=disabled \
+    -Dhos-audio=enabled -Ddeko3d=enabled build
 
-  ./bootstrap.py
-  export CFLAGS="$CFLAGS -D_POSIX_VERSION=200809L -DNDEBUG -I`pwd`/osdep/switch"
-  LIBDIR=${PORTLIBS_PREFIX}/lib TARGET=aarch64-none-elf ./waf configure \
-    --prefix="${PORTLIBS_PREFIX}" --disable-libmpv-shared --disable-debug-build \
-    --enable-libmpv-static --disable-cplayer --disable-sdl2 --disable-lua \
-    --disable-iconv --disable-jpeg --disable-libavdevice --disable-libarchive \
-    --disable-gl --disable-plain-gl --enable-deko3d --enable-hos-audio
-  sed -i 's/#define HAVE_POSIX 1/#define HAVE_POSIX 0/' build/config.h
-  ./waf build
+  meson compile -C build
 }
 
 package() {
   cd mpv-$pkgver
 
-  ./waf install --destdir=$pkgdir
+  DESTDIR="$pkgdir" meson install -C build
 }
