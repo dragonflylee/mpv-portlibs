@@ -20,7 +20,7 @@ jobs:
       run: |
         apt-get update
         apt-get install -y fakeroot zstd bison flex libtool python3-pip manpages-
-        pip3 install meson mako
+        pip3 install meson mako jinja2
 
         dkp-pacman --noconfirm -U dkp-*.zst
     - name: Build portlibs
@@ -32,7 +32,7 @@ jobs:
           -H 'Accept: application/vnd.github.patch' \
           -H 'Authorization: Bearer ${{ secrets.MPV_TOKEN }}' \
           -H 'X-GitHub-Api-Version: 2022-11-28' \
-          -s ${{ secrets.MPV_COMMIT}}/0.36
+          -s ${{ secrets.MPV_COMMIT}}/0.39
 
         chown -R builder:builder ${GITHUB_WORKSPACE}
         sudo -u builder -i bash -s << EOF
